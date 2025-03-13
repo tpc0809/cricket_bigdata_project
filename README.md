@@ -1,4 +1,4 @@
-# 🏏 Cricket Big Data ML Pipeline
+# 🏏 Cricket Big Data Project
 
 🚀 **Project Workflow**
 
