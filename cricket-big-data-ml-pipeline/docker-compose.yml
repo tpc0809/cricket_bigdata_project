@@ -24,7 +24,9 @@ services:
       - zookeeper_data:/bitnami/zookeeper
 
   kafka:
-    image: bitnami/kafka:3.9.0
+    build:
+      context: .
+      dockerfile: Dockerfile.kafka
     container_name: kafka
     restart: always
     environment:
@@ -39,11 +41,12 @@ services:
       - zookeeper
     volumes:
       - kafka_data:/bitnami/kafka
+      - ./kafka/Kafka_Scripts:/opt/kafka/scripts
 
   airflow:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.airflow
     container_name: airflow
     restart: always
     depends_on:
@@ -74,46 +77,55 @@ services:
         airflow scheduler & airflow webserver"
 
   spark-master:
-    image: bitnami/spark:3.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark-master
     restart: always
     environment:
-      SPARK_MODE: "master"
-      SPARK_MASTER_HOST: "spark-master"
-      JAVA_HOME: "/opt/bitnami/java"
-      PATH: "/opt/bitnami/java/bin:/opt/spark/bin:$PATH"
-      SPARK_DRIVER_MEMORY: "6g"
-      SPARK_EXECUTOR_MEMORY: "6g"
-      SPARK_EXECUTOR_CORES: "2"
-    command: ["/opt/bitnami/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+      SPARK_MODE: master
+      SPARK_MASTER_HOST: spark-master
+      JAVA_HOME: /opt/bitnami/java
+      PATH: /opt/bitnami/java/bin:/opt/spark/bin:$PATH
+      SPARK_DRIVER_MEMORY: 4g
+      SPARK_EXECUTOR_MEMORY: 4g
+      SPARK_EXECUTOR_CORES: 2
     ports:
       - "7077:7077"
       - "8085:8080"
+      - "4040:4040"
     volumes:
       - ./spark-events:/tmp/spark-events
+      - ./spark-scripts:/opt/spark-scripts
       - ./jars:/opt/spark/jars
+    command: >
+      /opt/bitnami/spark/bin/spark-class org.apache.spark.deploy.master.Master
 
   spark-worker:
-    image: bitnami/spark:3.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
     container_name: spark-worker
     restart: always
-    environment:
-      SPARK_MODE: "worker"
-      SPARK_MASTER_URL: "spark://spark-master:7077"
-      JAVA_HOME: "/opt/bitnami/java"
-      PATH: "/opt/bitnami/java/bin:/opt/spark/bin:$PATH"
-      SPARK_WORKER_MEMORY: "6g"
-      SPARK_EXECUTOR_MEMORY: "6g"
-      SPARK_EXECUTOR_CORES: "2"
     depends_on:
       - spark-master
-    command: ["/opt/bitnami/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      JAVA_HOME: /opt/bitnami/java
+      PATH: /opt/bitnami/java/bin:/opt/spark/bin:$PATH
+      SPARK_WORKER_MEMORY: 4g
+      SPARK_EXECUTOR_MEMORY: 4g
+      SPARK_EXECUTOR_CORES: 2
     ports:
       - "8086:8081"
     volumes:
       - ./spark-events:/tmp/spark-events
+      - ./spark-scripts:/opt/spark-scripts
       - ./jars:/opt/spark/jars
-
+    command: >
+      /opt/bitnami/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+      
   minio:
     image: minio/minio:latest
     container_name: minio
